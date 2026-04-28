@@ -1,0 +1,99 @@
+@import "tailwindcss";
+
+:root {
+  --app-bg: #ffffff;
+  --foreground: #1a1a1a;
+  --muted: #555555;
+  --panel: #ffffff;
+  --panel-border: #e5e7eb;
+  --card: #ffffff;
+  --surface-subtle: #f5f7fa;
+  --track: #e5e7eb;
+  --accent: rgba(37, 99, 235, 0.12);
+  --accent-strong: #2563eb;
+  --accent-warm: #1d4ed8;
+  --positive: #059669;
+  --negative: #dc2626;
+  --soft-shadow: 0 14px 36px rgba(15, 23, 42, 0.08);
+  --chart-line: #2563eb;
+}
+
+.dark {
+  --app-bg: #ffffff;
+  --foreground: #1a1a1a;
+  --muted: #555555;
+  --panel: #ffffff;
+  --panel-border: #e5e7eb;
+  --card: #ffffff;
+  --surface-subtle: #f5f7fa;
+  --track: #e5e7eb;
+  --accent: rgba(37, 99, 235, 0.12);
+  --accent-strong: #2563eb;
+  --accent-warm: #1d4ed8;
+  --positive: #059669;
+  --negative: #dc2626;
+  --soft-shadow: 0 14px 36px rgba(15, 23, 42, 0.08);
+  --chart-line: #2563eb;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  overflow-x: hidden;
+  background: #ffffff;
+  color: var(--foreground);
+  font-family: var(--font-sans), sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.dark body {
+  background: #ffffff;
+}
+
+@media (min-width: 768px) {
+  body {
+    font-size: 15px;
+  }
+}
+
+@media (min-width: 1024px) {
+  body {
+    font-size: 16px;
+  }
+}
+
+code,
+pre,
+kbd,
+samp {
+  font-family: var(--font-mono), monospace;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+::selection {
+  background: rgba(37, 99, 235, 0.24);
+}
+
+.text-balance {
+  text-wrap: balance;
+}
+
+.glass-panel {
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  box-shadow: var(--soft-shadow);
+}

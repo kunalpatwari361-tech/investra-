@@ -1,0 +1,16 @@
+.next
+node_modules
+.env
+.env.local
+.env.local.bak
+.env.development.local
+.env.production.local
+*.log
+*.pid
+test_output*.txt
+logs
+dist
+coverage
+out
+data/users.json
+scratch
