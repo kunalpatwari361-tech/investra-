@@ -6,6 +6,6 @@ export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
     validateAuthConfiguration();
     warnIfUserStoreIsEphemeral();
-    await runStartupModelHealthCheck();
+    void runStartupModelHealthCheck();
   }
 }

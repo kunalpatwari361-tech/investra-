@@ -10,6 +10,10 @@ type AppAuthPanelProps = {
   initialError?: string | null;
 };
 
+function isValidEmail(email: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
 export function AppAuthPanel({ initialError }: AppAuthPanelProps) {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -20,6 +24,18 @@ export function AppAuthPanel({ initialError }: AppAuthPanelProps) {
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedPassword = password.trim();
+
+    if (!normalizedEmail || !normalizedPassword) {
+      setError("Email and password are required.");
+      return;
+    }
+
+    if (!isValidEmail(normalizedEmail)) {
+      setError("Enter a valid email address.");
+      return;
+    }
 
     try {
       const response = await fetch("/api/auth/login", {
@@ -28,13 +44,22 @@ export function AppAuthPanel({ initialError }: AppAuthPanelProps) {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          email,
-          password
+          email: normalizedEmail,
+          password: normalizedPassword
         })
       });
 
       if (!response.ok) {
-        throw new Error(await getApiErrorMessage(response, "Login failed"));
+        const apiMessage = await getApiErrorMessage(response, `Login failed (${response.status})`);
+        logDebugError(
+          {
+            message: apiMessage,
+            status: response.status,
+            statusText: response.statusText
+          },
+          "AppAuthPanel.handleSubmit.response"
+        );
+        throw new Error(apiMessage);
       }
 
       const payload = (await response.json()) as { success?: boolean; error?: string };
