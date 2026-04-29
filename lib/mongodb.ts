@@ -1,9 +1,24 @@
 import mongoose from "mongoose";
 
-const MONGODB_URI =
-  process.env.MONGODB_URI?.trim() ||
-  process.env.MONGO_URI?.trim() ||
-  "mongodb://127.0.0.1:27017/tradesense";
+const DEFAULT_LOCAL_MONGODB_URI = "mongodb://127.0.0.1:27017/tradesense";
+
+function getMongoUri() {
+  const configuredUri = process.env.MONGODB_URI?.trim() || process.env.MONGO_URI?.trim();
+
+  if (configuredUri) {
+    return configuredUri;
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("MONGODB_URI is not configured.");
+  }
+
+  return DEFAULT_LOCAL_MONGODB_URI;
+}
+
+function getMongoDbName() {
+  return process.env.MONGODB_DB_NAME?.trim() || "tradesense";
+}
 
 type MongooseCache = {
   conn: typeof mongoose | null;
@@ -28,10 +43,14 @@ export async function connectDB() {
   }
 
   if (!globalCache.promise) {
+    const mongoUri = getMongoUri();
+
     globalCache.promise = mongoose
-      .connect(MONGODB_URI, {
-        dbName: "tradesense",
-        bufferCommands: false
+      .connect(mongoUri, {
+        dbName: getMongoDbName(),
+        bufferCommands: false,
+        serverSelectionTimeoutMS: 5_000,
+        connectTimeoutMS: 5_000
       })
       .catch((error) => {
         globalCache.promise = null;

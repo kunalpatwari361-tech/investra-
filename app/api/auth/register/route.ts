@@ -1,9 +1,10 @@
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
-import { AppAuthError, createAppSessionToken, setAppSessionCookie } from "@/lib/auth";
-import { getErrorMessage, logDebugError } from "@/lib/error-utils";
-import { createUser, toAppUserProfile, UserStoreError } from "@/lib/user-store";
+import { createAuthApiErrorResponse } from "@/lib/auth-api-utils";
+import { createAppSessionToken, setAppSessionCookie } from "@/lib/auth";
+import { logDebugError, readJsonBody } from "@/lib/error-utils";
+import { createUser, toAppUserProfile } from "@/lib/user-store";
 
 type RegisterPayload = {
   email?: string;
@@ -20,47 +21,11 @@ function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-function createRegisterErrorResponse(error: unknown) {
-  const fallbackMessage = "Unable to create your account right now.";
-
-  if (error instanceof AppAuthError) {
-    return {
-      status: error.status,
-      code: "AUTH_CONFIGURATION_ERROR",
-      message: error.message
-    };
-  }
-
-  if (error instanceof UserStoreError) {
-    return {
-      status: error.status,
-      code: error.code,
-      message: error.message
-    };
-  }
-
-  const resolvedMessage = getErrorMessage(error, fallbackMessage);
-
-  if (resolvedMessage.includes("already exists")) {
-    return {
-      status: 409,
-      code: "DUPLICATE_EMAIL",
-      message: resolvedMessage
-    };
-  }
-
-  return {
-    status: 500,
-    code: "REGISTER_FAILED",
-    message: fallbackMessage
-  };
-}
-
 export async function POST(request: Request) {
   const requestId = crypto.randomUUID();
 
   try {
-    const body = (await request.json()) as RegisterPayload;
+    const body = await readJsonBody<RegisterPayload>(request);
     const email = body.email?.trim();
     const password = body.password?.trim();
 
@@ -103,7 +68,10 @@ export async function POST(request: Request) {
 
     return response;
   } catch (error: unknown) {
-    const { status, code, message } = createRegisterErrorResponse(error);
+    const { status, code, message } = createAuthApiErrorResponse(
+      error,
+      "Unable to create your account right now."
+    );
     logDebugError(error, `api/auth/register:${requestId}:${code}`);
 
     return NextResponse.json(

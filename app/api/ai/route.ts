@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { AppAuthError, requireAuthenticatedUser } from "@/lib/auth";
 import { QueryApiError, enforceQueryRateLimit } from "@/lib/api-service";
-import { getErrorMessage, logDebugError } from "@/lib/error-utils";
+import { ApiRequestError, getErrorMessage, logDebugError, readJsonBody } from "@/lib/error-utils";
 import { createErrorEnvelope, createSuccessEnvelope } from "@/lib/services/api-utils";
 import {
   callAiEndpoint,
@@ -90,7 +90,7 @@ export async function POST(request: Request) {
     await requireAuthenticatedUser(request);
     enforceQueryRateLimit(request);
 
-    const body = (await request.json()) as AiPayload;
+    const body = await readJsonBody<AiPayload>(request);
     const prompt = readPrompt(body);
     const target = body.model === "reasoning" ? getReasoningAiEndpoint() : getFastAiEndpoint();
     const text = await callAiEndpoint({
@@ -123,6 +123,10 @@ export async function POST(request: Request) {
         status: error.status,
         headers: retryAfterSeconds ? { "Retry-After": String(retryAfterSeconds) } : undefined
       });
+    }
+
+    if (error instanceof ApiRequestError) {
+      return NextResponse.json(createErrorEnvelope("ai", error.message), { status: error.status });
     }
 
     logDebugError(error, "api/ai.POST");

@@ -1,7 +1,9 @@
+import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
+import { createAuthApiErrorResponse } from "@/lib/auth-api-utils";
 import { createAppSessionToken, setAppSessionCookie } from "@/lib/auth";
-import { getErrorMessage, logDebugError } from "@/lib/error-utils";
+import { logDebugError, readJsonBody } from "@/lib/error-utils";
 import { findUserByEmail, toAppUserProfile } from "@/lib/user-store";
 
 type LoginPayload = {
@@ -18,8 +20,10 @@ function isValidEmail(email: string) {
 }
 
 export async function POST(request: Request) {
+  const requestId = crypto.randomUUID();
+
   try {
-    const body = (await request.json()) as LoginPayload;
+    const body = await readJsonBody<LoginPayload>(request);
     const email = body.email?.trim() ?? "";
     const password = body.password?.trim() ?? "";
 
@@ -90,13 +94,17 @@ export async function POST(request: Request) {
 
     return response;
   } catch (error: unknown) {
-    logDebugError(error, "api/auth/login");
+    const { status, code, message } = createAuthApiErrorResponse(error, "Unable to log in right now.");
+    logDebugError(error, `api/auth/login:${requestId}:${code}`);
+
     return NextResponse.json(
       {
         success: false,
-        error: getErrorMessage(error, "Server error")
+        error: message,
+        code,
+        requestId
       },
-      { status: 500 }
+      { status }
     );
   }
 }

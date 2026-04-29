@@ -2,6 +2,18 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+export class ApiRequestError extends Error {
+  status: number;
+  code: string;
+
+  constructor(message: string, status = 400, code = "BAD_REQUEST", options?: { cause?: unknown }) {
+    super(message, options);
+    this.name = "ApiRequestError";
+    this.status = status;
+    this.code = code;
+  }
+}
+
 function readRecordString(record: Record<string, unknown>, keys: string[]) {
   for (const key of keys) {
     const value = record[key];
@@ -142,6 +154,17 @@ export function logDebugError(error: unknown, context?: string) {
     stack: normalized.stack || "No stack",
     raw: serializeForDebug(error)
   });
+}
+
+export async function readJsonBody<T>(
+  request: Request,
+  fallbackMessage = "Invalid JSON request body."
+): Promise<T> {
+  try {
+    return (await request.json()) as T;
+  } catch (error) {
+    throw new ApiRequestError(fallbackMessage, 400, "INVALID_JSON", { cause: error });
+  }
 }
 
 export async function getApiErrorMessage(

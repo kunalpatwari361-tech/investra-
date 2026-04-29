@@ -1,8 +1,12 @@
+import crypto from "node:crypto";
 import { NextResponse } from "next/server";
+import { createAuthApiErrorResponse } from "@/lib/auth-api-utils";
 import { clearAppSessionCookie, getCurrentUserFromCookies } from "@/lib/auth";
-import { getErrorMessage, logDebugError } from "@/lib/error-utils";
+import { logDebugError } from "@/lib/error-utils";
 
 export async function GET() {
+  const requestId = crypto.randomUUID();
+
   try {
     const user = await getCurrentUserFromCookies();
 
@@ -18,10 +22,12 @@ export async function GET() {
       user
     });
   } catch (error: unknown) {
-    logDebugError(error, "api/auth/session");
+    const { status, code, message } = createAuthApiErrorResponse(error, "Unable to read session.");
+    logDebugError(error, `api/auth/session:${requestId}:${code}`);
+
     return NextResponse.json(
-      { success: false, authenticated: false, error: getErrorMessage(error, "Unable to read session.") },
-      { status: 500 }
+      { success: false, authenticated: false, error: message, code, requestId },
+      { status }
     );
   }
 }

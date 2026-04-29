@@ -40,6 +40,7 @@ const DATA_DIRECTORY = path.join(process.cwd(), "data");
 const USERS_FILE_PATH = path.join(DATA_DIRECTORY, "users.json");
 let mutationQueue = Promise.resolve();
 let mongoUserStoreAvailable: boolean | null = null;
+let hasWarnedAboutEphemeralUserStore = false;
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
@@ -47,6 +48,17 @@ function normalizeEmail(email: string) {
 
 function useMongoUserStore() {
   return Boolean(process.env.MONGODB_URI?.trim() || process.env.MONGO_URI?.trim());
+}
+
+export function warnIfUserStoreIsEphemeral() {
+  if (process.env.NODE_ENV !== "production" || useMongoUserStore() || hasWarnedAboutEphemeralUserStore) {
+    return;
+  }
+
+  hasWarnedAboutEphemeralUserStore = true;
+  console.warn(
+    "AUTH WARNING: MONGODB_URI is not configured. Production signup will use local file storage, which is ephemeral on hosts like Render."
+  );
 }
 
 async function canUseMongoUserStore() {
@@ -65,7 +77,7 @@ async function canUseMongoUserStore() {
   } catch (error) {
     if (process.env.NODE_ENV === "production") {
       throw new UserStoreError(
-        "Database connection failed. Check MONGODB_URI and MongoDB network access.",
+        "Database connection failed. Check MONGODB_URI, MongoDB network access, and MONGODB_DB_NAME if you set one.",
         503,
         "DATABASE_UNAVAILABLE",
         { cause: error }

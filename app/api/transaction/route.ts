@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { TransactionModel } from "@/lib/db-models";
-import { getErrorMessage, logDebugError } from "@/lib/error-utils";
+import { ApiRequestError, getErrorMessage, logDebugError, readJsonBody } from "@/lib/error-utils";
 import { connectDB } from "@/lib/mongodb";
 import { resolveAppUserId } from "@/lib/chat-persistence";
 
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
   try {
     await connectDB();
 
-    const body = (await request.json()) as TransactionPayload;
+    const body = await readJsonBody<TransactionPayload>(request);
     const type = body.type?.trim();
     const symbol = body.symbol?.trim()?.toUpperCase();
     const quantity = Number(body.quantity);
@@ -68,6 +68,11 @@ export async function POST(request: Request) {
     return NextResponse.json(transaction.toObject(), { status: 201 });
   } catch (error: unknown) {
     logDebugError(error, "api/transaction.POST");
+
+    if (error instanceof ApiRequestError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+
     return NextResponse.json(
       { error: getErrorMessage(error, "Unable to save transaction.") },
       { status: 500 }

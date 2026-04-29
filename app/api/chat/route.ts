@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { AppAuthError, requireAuthenticatedUser } from "@/lib/auth";
 import { createChatRecord, listChatRecords } from "@/lib/chat-persistence";
-import { getErrorMessage, logDebugError } from "@/lib/error-utils";
+import { ApiRequestError, getErrorMessage, logDebugError, readJsonBody } from "@/lib/error-utils";
 
 type ChatPayload = {
   userId?: string;
@@ -33,7 +33,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const user = await requireAuthenticatedUser(request);
-    const body = (await request.json()) as ChatPayload;
+    const body = await readJsonBody<ChatPayload>(request);
     const message = body.message?.trim();
     const response = body.response?.trim();
     const model = body.model?.trim();
@@ -64,6 +64,10 @@ export async function POST(request: Request) {
     logDebugError(error, "api/chat.POST");
 
     if (error instanceof AppAuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+
+    if (error instanceof ApiRequestError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
 

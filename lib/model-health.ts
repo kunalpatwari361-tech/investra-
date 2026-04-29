@@ -62,7 +62,7 @@ async function checkEndpoint(endpoint: ModelEndpointConfig) {
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown error";
-    console.error(
+    console.warn(
       `[startup-health] ${endpoint.label} model endpoint failed: ${endpoint.url} | ${message}`
     );
   }
