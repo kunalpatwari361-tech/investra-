@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { UserModel } from "@/lib/db-models";
+import { AuthUserModel } from "@/lib/db-models";
 import { connectDB } from "@/lib/mongodb";
 
 export type StoredUser = {
@@ -23,6 +23,18 @@ type MongoUserRecord = {
   passwordHash: string;
   createdAt: Date | string;
 };
+
+export class UserStoreError extends Error {
+  status: number;
+  code: string;
+
+  constructor(message: string, status = 500, code = "USER_STORE_ERROR", options?: { cause?: unknown }) {
+    super(message, options);
+    this.name = "UserStoreError";
+    this.status = status;
+    this.code = code;
+  }
+}
 
 const DATA_DIRECTORY = path.join(process.cwd(), "data");
 const USERS_FILE_PATH = path.join(DATA_DIRECTORY, "users.json");
@@ -52,7 +64,12 @@ async function canUseMongoUserStore() {
     return true;
   } catch (error) {
     if (process.env.NODE_ENV === "production") {
-      throw error;
+      throw new UserStoreError(
+        "Database connection failed. Check MONGODB_URI and MongoDB network access.",
+        503,
+        "DATABASE_UNAVAILABLE",
+        { cause: error }
+      );
     }
 
     mongoUserStoreAvailable = false;
@@ -147,7 +164,7 @@ async function queueMutation<T>(mutate: (users: StoredUser[]) => Promise<T> | T)
 
 async function findMongoUser(filter: Record<string, unknown>) {
   await connectDB();
-  const user = await UserModel.findOne(filter).lean<MongoUserRecord | null>();
+  const user = await AuthUserModel.findOne(filter).lean<MongoUserRecord | null>();
   return user ? mapMongoUser(user) : null;
 }
 
@@ -185,14 +202,14 @@ export async function createUser(email: string, passwordHash: string) {
   if (await canUseMongoUserStore()) {
     await connectDB();
 
-    const existing = await UserModel.findOne({ email: normalized }).lean();
+    const existing = await AuthUserModel.findOne({ email: normalized }).lean();
 
     if (existing) {
-      throw new Error("An account with this email already exists.");
+      throw new UserStoreError("An account with this email already exists.", 409, "DUPLICATE_EMAIL");
     }
 
     try {
-      const user = await UserModel.create({
+      const user = await AuthUserModel.create({
         email: normalized,
         passwordHash,
         createdAt: new Date()
@@ -200,10 +217,21 @@ export async function createUser(email: string, passwordHash: string) {
 
       return mapMongoUser(user.toObject() as MongoUserRecord);
     } catch (error) {
-      const duplicateError = error as { code?: number };
+      const duplicateError = error as { code?: number; name?: string };
 
       if (duplicateError.code === 11000) {
-        throw new Error("An account with this email already exists.");
+        throw new UserStoreError("An account with this email already exists.", 409, "DUPLICATE_EMAIL", {
+          cause: error
+        });
+      }
+
+      if (duplicateError.name === "ValidationError") {
+        throw new UserStoreError(
+          "User storage is misconfigured. Check the deployed MongoDB auth schema.",
+          500,
+          "USER_STORE_SCHEMA_ERROR",
+          { cause: error }
+        );
       }
 
       throw error;
@@ -212,7 +240,7 @@ export async function createUser(email: string, passwordHash: string) {
 
   return queueMutation((users) => {
     if (users.some((user) => user.email === normalized)) {
-      throw new Error("An account with this email already exists.");
+      throw new UserStoreError("An account with this email already exists.", 409, "DUPLICATE_EMAIL");
     }
 
     const user: StoredUser = {

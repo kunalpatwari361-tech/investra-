@@ -46,9 +46,9 @@ export type UserDocument = InferSchemaType<typeof userSchema>;
 export type ChatDocument = InferSchemaType<typeof chatSchema>;
 export type TransactionDocument = InferSchemaType<typeof transactionSchema>;
 
-export const UserModel =
-  (mongoose.models.User as Model<UserDocument> | undefined) ??
-  mongoose.model<UserDocument>("User", userSchema);
+export const AuthUserModel =
+  (mongoose.models.AtlasAuthUser as Model<UserDocument> | undefined) ??
+  mongoose.model<UserDocument>("AtlasAuthUser", userSchema);
 
 export const ChatModel =
   (mongoose.models.Chat as Model<ChatDocument> | undefined) ??

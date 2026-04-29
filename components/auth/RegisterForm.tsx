@@ -9,6 +9,12 @@ type RegisterFormProps = {
   initialError?: string | null;
 };
 
+const MIN_PASSWORD_LENGTH = 8;
+
+function isValidEmail(email: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
 export default function RegisterForm({ initialError = null }: RegisterFormProps) {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -19,6 +25,24 @@ export default function RegisterForm({ initialError = null }: RegisterFormProps)
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedPassword = password.trim();
+
+    if (!normalizedEmail || !normalizedPassword) {
+      setError("Email and password are required.");
+      return;
+    }
+
+    if (!isValidEmail(normalizedEmail)) {
+      setError("Enter a valid email address.");
+      return;
+    }
+
+    if (normalizedPassword.length < MIN_PASSWORD_LENGTH) {
+      setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -27,11 +51,20 @@ export default function RegisterForm({ initialError = null }: RegisterFormProps)
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email: normalizedEmail, password: normalizedPassword })
       });
 
       if (!response.ok) {
-        throw new Error(await getApiErrorMessage(response, "Registration failed"));
+        const apiMessage = await getApiErrorMessage(response, `Registration failed (${response.status})`);
+        logDebugError(
+          {
+            message: apiMessage,
+            status: response.status,
+            statusText: response.statusText
+          },
+          "RegisterForm.handleSubmit.response"
+        );
+        throw new Error(apiMessage);
       }
 
       const data = (await response.json()) as { success?: boolean; error?: string };
@@ -57,18 +90,25 @@ export default function RegisterForm({ initialError = null }: RegisterFormProps)
     >
       <input
         type="email"
+        name="email"
         placeholder="Email"
         value={email}
         onChange={(event) => setEmail(event.target.value)}
         autoComplete="email"
+        autoCapitalize="none"
+        autoCorrect="off"
+        required
         className="rounded-xl border border-[#e5e7eb] bg-[#f5f7fa] px-4 py-3 text-[#1a1a1a] outline-none transition focus:border-blue-500 focus:bg-white"
       />
       <input
         type="password"
+        name="password"
         placeholder="Password"
         value={password}
         onChange={(event) => setPassword(event.target.value)}
         autoComplete="new-password"
+        required
+        minLength={MIN_PASSWORD_LENGTH}
         className="rounded-xl border border-[#e5e7eb] bg-[#f5f7fa] px-4 py-3 text-[#1a1a1a] outline-none transition focus:border-blue-500 focus:bg-white"
       />
       <button
@@ -78,7 +118,11 @@ export default function RegisterForm({ initialError = null }: RegisterFormProps)
       >
         {isSubmitting ? "Creating account..." : "Register"}
       </button>
-      {error ? <p className="text-sm text-rose-600">{error}</p> : null}
+      {error ? (
+        <p aria-live="polite" className="text-sm text-rose-600">
+          {error}
+        </p>
+      ) : null}
       <p className="text-sm text-[#555555]">
         Already have an account?{" "}
         <Link href="/login" className="text-blue-600 hover:text-blue-700">
