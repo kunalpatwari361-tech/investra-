@@ -17,6 +17,15 @@ type AppSessionTokenPayload = {
 
 const APP_SESSION_COOKIE_NAME = "atlas_app_session";
 const APP_SESSION_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
+const AUTH_SECRET_ENV_KEYS = [
+  "APP_SESSION_SECRET",
+  "JWT_SECRET",
+  "SESSION_SECRET",
+  "AUTH_SECRET",
+  "NEXTAUTH_SECRET"
+] as const;
+
+let hasWarnedAboutDevAuthSecret = false;
 
 export class AppAuthError extends Error {
   status: number;
@@ -29,16 +38,33 @@ export class AppAuthError extends Error {
 }
 
 function getRequiredAuthSecret() {
-  const secret =
-    process.env.JWT_SECRET?.trim() ||
-    process.env.SESSION_SECRET?.trim() ||
-    (process.env.NODE_ENV !== "production" ? "atlas-dev-session-secret" : "");
+  for (const key of AUTH_SECRET_ENV_KEYS) {
+    const value = process.env[key]?.trim();
 
-  if (!secret) {
-    throw new AppAuthError("JWT_SECRET is not configured on the server.", 500);
+    if (value) {
+      return value;
+    }
   }
 
-  return secret;
+  if (process.env.NODE_ENV !== "production") {
+    if (!hasWarnedAboutDevAuthSecret) {
+      hasWarnedAboutDevAuthSecret = true;
+      console.warn(
+        `AUTH WARNING: using development fallback secret. Set one of ${AUTH_SECRET_ENV_KEYS.join(", ")}.`
+      );
+    }
+
+    return "atlas-dev-session-secret";
+  }
+
+  throw new AppAuthError(
+    `Auth secret is not configured. Set one of: ${AUTH_SECRET_ENV_KEYS.join(", ")}.`,
+    500
+  );
+}
+
+export function validateAuthConfiguration() {
+  getRequiredAuthSecret();
 }
 
 function getCookieConfig(maxAge: number) {
